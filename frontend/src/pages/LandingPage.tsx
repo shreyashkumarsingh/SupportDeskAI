@@ -17,7 +17,7 @@ import {
   Twitter,
   Linkedin
 } from 'lucide-react';
-import { PageTransition, fadeInUp, staggerContainer } from '../components/PageTransition.tsx';
+import { PageTransition, fadeInUp, staggerContainer } from '@/components/PageTransition';
 
 const features = [
   {

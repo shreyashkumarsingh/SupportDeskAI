@@ -16,11 +16,11 @@ import {
   TooltipItem,
 } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
-import { Navbar } from '../components/Navbar.tsx';
-import { PageTransition } from '../components/PageTransition.tsx';
-import { usePredictions } from '../hooks/usePredictions.ts';
-import { ticketCategories, categoryColors, generateChartData } from '../utils/mockData.ts';
-import { useTheme } from '../context/ThemeContext.tsx';
+import { Navbar } from '@/components/Navbar';
+import { PageTransition } from '@/components/PageTransition';
+import { usePredictions } from '@/hooks/usePredictions';
+import { ticketCategories, categoryColors, generateChartData } from '@/utils/mockData';
+import { useTheme } from '@/context/ThemeContext';
 
 ChartJS.register(
   CategoryScale,

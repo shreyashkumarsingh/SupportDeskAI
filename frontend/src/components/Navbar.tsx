@@ -13,9 +13,9 @@ import {
   Sparkles,
   User
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext.tsx';
-import { useTheme } from '../context/ThemeContext.tsx';
-import { cn } from '../lib/utils.ts';
+import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
