@@ -19,7 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 
 const DashboardPage: React.FC = () => {
   const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const [description, setDescription] = useState('');
   const [isPredicting, setIsPredicting] = useState(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const { predict, getStats, error } = usePredictions();
@@ -28,13 +28,13 @@ const DashboardPage: React.FC = () => {
   const stats = getStats();
 
   const handlePredict = async () => {
-    if (!subject.trim() || !body.trim()) return;
+    if (!subject.trim() || !description.trim()) return;
     
     setIsPredicting(true);
     setResult(null);
     
     try {
-      const prediction = await predict(subject, body, user?.id);
+      const prediction = await predict(subject, description, user?.id);
       setResult(prediction);
     } finally {
       setIsPredicting(false);
@@ -43,7 +43,7 @@ const DashboardPage: React.FC = () => {
 
   const resetForm = () => {
     setSubject('');
-    setBody('');
+    setDescription('');
     setResult(null);
   };
 
@@ -131,8 +131,8 @@ const DashboardPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-2">Ticket Body</label>
                   <textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe the issue in detail..."
                     rows={5}
                     className="input-glass resize-none"
@@ -142,7 +142,7 @@ const DashboardPage: React.FC = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={handlePredict}
-                    disabled={isPredicting || !subject.trim() || !body.trim()}
+                    disabled={isPredicting || !subject.trim() || !description.trim()}
                     className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed animate-glow-pulse"
                   >
                     {isPredicting ? (
@@ -157,7 +157,7 @@ const DashboardPage: React.FC = () => {
                       </>
                     )}
                   </button>
-                  {(subject || body || result) && (
+                  {(subject || description || result) && (
                     <button
                       onClick={resetForm}
                       className="btn-secondary px-4"
