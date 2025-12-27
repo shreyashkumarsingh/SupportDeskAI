@@ -68,3 +68,4 @@ uvicorn*.log
 # Temporary files
 tmp_*
 *.tmp
+*.tsbuildinfo
