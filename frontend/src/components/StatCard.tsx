@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '../lib/utils.ts';
 
 interface StatCardProps {
   title: string;
