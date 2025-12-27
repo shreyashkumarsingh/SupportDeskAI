@@ -9,11 +9,11 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { Navbar } from '../components/Navbar';
-import { PageTransition } from '../components/PageTransition';
-import { CategoryBadge } from '../components/CategoryBadge';
-import { usePredictions } from '../hooks/usePredictions';
-import { ticketCategories, TicketCategory } from '../utils/mockData';
+import { Navbar } from '../components/Navbar.tsx';
+import { PageTransition } from '../components/PageTransition.tsx';
+import { CategoryBadge } from '../components/CategoryBadge.tsx';
+import { usePredictions } from '../hooks/usePredictions.ts';
+import { ticketCategories, TicketCategory } from '../utils/mockData.ts';
 
 const ITEMS_PER_PAGE = 8;
 

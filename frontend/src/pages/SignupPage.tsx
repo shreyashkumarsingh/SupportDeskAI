@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { PageTransition } from '../components/PageTransition';
+import { useAuth } from '../context/AuthContext.tsx';
+import { PageTransition } from '../components/PageTransition.tsx';
 
 const SignupPage: React.FC = () => {
   const [name, setName] = useState('');

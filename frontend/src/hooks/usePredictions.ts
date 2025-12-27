@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext.tsx';
 import { 
   PredictionResult, 
   HistoryItem, 
   generateMockPrediction 
-} from '../utils/mockData';
-import { predictTicket } from '../lib/api';
+} from '../utils/mockData.ts';
+import { predictTicket } from '../lib/api.ts';
 
 export const usePredictions = () => {
   const { user } = useAuth();
