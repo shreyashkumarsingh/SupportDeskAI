@@ -1,6 +1,6 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
-import { TicketCategory, categoryColors } from '@/utils/mockData';
+import { cn } from '../lib/utils';
+import { TicketCategory, categoryColors } from '../utils/mockData';
 
 interface CategoryBadgeProps {
   category: TicketCategory;

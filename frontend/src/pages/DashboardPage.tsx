@@ -9,13 +9,13 @@ import {
   Loader2,
   CheckCircle2
 } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
-import { PageTransition } from '@/components/PageTransition';
-import { StatCard } from '@/components/StatCard';
-import { CategoryBadge } from '@/components/CategoryBadge';
-import { usePredictions } from '@/hooks/usePredictions';
-import { PredictionResult } from '@/utils/mockData';
-import { useAuth } from '@/context/AuthContext';
+import { Navbar } from '../components/Navbar';
+import { PageTransition } from '../components/PageTransition';
+import { StatCard } from '../components/StatCard';
+import { CategoryBadge } from '../components/CategoryBadge';
+import { usePredictions } from '../hooks/usePredictions';
+import { PredictionResult } from '../utils/mockData';
+import { useAuth } from '../context/AuthContext';
 
 const DashboardPage: React.FC = () => {
   const [subject, setSubject] = useState('');
