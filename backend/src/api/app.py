@@ -66,9 +66,21 @@ log.info("ML model + vectorizer loaded successfully")
 # --------------------------------------------------------------------
 app = FastAPI()
 
+# --------------------------------------------------------------------
+# CORS configuration (env-driven)
+# --------------------------------------------------------------------
+# Set ALLOWED_ORIGINS in the environment as a comma-separated list, e.g.
+# "https://your-frontend.onrender.com,https://your-vercel-app.vercel.app"
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins_env.strip() == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+log.info("CORS allow_origins: %s", allowed_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # 🔥 localhost frontend allowed
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
