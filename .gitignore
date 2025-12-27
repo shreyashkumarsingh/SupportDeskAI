@@ -15,6 +15,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+# Do not ignore frontend source lib directory (needed for TS imports)
+!frontend/src/lib/
+!frontend/src/lib/**
 lib64/
 parts/
 sdist/
