@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 interface PredictPayload {
   subject: string;
-  body: string;
+  description: string;
   userId?: string | null;
 }
 
@@ -27,12 +27,12 @@ const normalizeCategory = (label: string): TicketCategory => {
 export const predictTicket = async (
   payload: PredictPayload
 ): Promise<PredictionResult> => {
-  const { subject, body, userId } = payload;
+  const { subject, description, userId } = payload;
   const response = await axios.post<BackendPredictionResponse>(
     `${API_BASE}/predict`,
     {
       subject,
-      body,
+      description,
       user_id: userId,
     },
     {

@@ -91,7 +91,7 @@ app.add_middleware(
 # --------------------------------------------------------------------
 class Ticket(BaseModel):
     subject: str
-    body: str
+    description: str
     user_id: str | None = None
 
 
@@ -102,7 +102,7 @@ class Ticket(BaseModel):
 def predict(ticket: Ticket):
 
     try:
-        text = clean_text(ticket.subject + " " + ticket.body)
+        text = clean_text(ticket.subject + " " + ticket.description)
         X = tfidf.transform([text])
         pred = model.predict(X)[0]
 
@@ -123,7 +123,7 @@ def predict(ticket: Ticket):
                 supabase.schema("public").table("history").insert({
                     "user_id": ticket.user_id,
                     "subject": ticket.subject,
-                    "body": ticket.body,
+                    "body": ticket.description,
                     "predicted_category": pred,
                 }).execute()
 

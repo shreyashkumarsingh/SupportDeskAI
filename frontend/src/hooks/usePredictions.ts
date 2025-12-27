@@ -37,16 +37,16 @@ export const usePredictions = () => {
   }, [user?.id]);
 
   const predict = useCallback(
-    async (subject: string, body: string, userId?: string | null): Promise<PredictionResult> => {
+    async (subject: string, description: string, userId?: string | null): Promise<PredictionResult> => {
       setError(null);
       try {
-        const result = await predictTicket({ subject, body, userId });
+        const result = await predictTicket({ subject, description, userId });
 
         const newHistoryItem: HistoryItem = {
           id: crypto.randomUUID(),
           timestamp: new Date(),
           subject,
-          body,
+          body: description,
           category: result.category,
           confidence: result.confidence,
         };
@@ -63,14 +63,14 @@ export const usePredictions = () => {
         return result;
       } catch (err) {
         // Fallback to local heuristic to keep UX responsive
-        const fallback = generateMockPrediction(subject, body);
+        const fallback = generateMockPrediction(subject, description);
         setError('Live prediction failed. Showing offline estimate.');
 
         const newHistoryItem: HistoryItem = {
           id: crypto.randomUUID(),
           timestamp: new Date(),
           subject,
-          body,
+          body: description,
           category: fallback.category,
           confidence: fallback.confidence,
         };
