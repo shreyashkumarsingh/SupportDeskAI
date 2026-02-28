@@ -90,6 +90,7 @@ MODEL_REGISTRY_PATH = DATA_DIR / "model_registry.json"
 MODEL_VERSION = os.getenv("MODEL_VERSION", "2.1.0")
 DEFAULT_ROLE = "agent"
 SUPPORTED_ROLES = {"admin", "agent", "viewer"}
+ENABLE_EXPLAINER = os.getenv("ENABLE_EXPLAINER", "false").strip().lower() == "true"
 
 ASYNC_JOBS = {}
 ASYNC_LOCK = Lock()
@@ -137,13 +138,15 @@ if ModelMonitor:
 
 # Initialize explainer
 model_explainer = None
-if ModelExplainer and model and tfidf:
+if ModelExplainer and model and tfidf and ENABLE_EXPLAINER:
     try:
         feature_names = getattr(tfidf, 'get_feature_names_out', lambda: [])()
         model_explainer = ModelExplainer(model, tfidf, feature_names)
         log.info("✅ Model explainer (SHAP) initialized")
     except Exception as e:
         log.warning(f"⚠️ Model explainer initialization failed: {e}")
+elif not ENABLE_EXPLAINER:
+    log.info("ℹ️ Explainability startup init disabled (set ENABLE_EXPLAINER=true to enable)")
 
 # =====================================================================
 # FASTAPI APP
