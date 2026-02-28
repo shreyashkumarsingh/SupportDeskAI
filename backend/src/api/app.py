@@ -155,11 +155,34 @@ app = FastAPI(
 # =====================================================================
 # CORS CONFIGURATION
 # =====================================================================
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
-if allowed_origins_env.strip() == "*":
-    allowed_origins = ["*"]
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+environment = os.getenv("ENVIRONMENT", "development")
+
+# Development origins
+dev_origins = [
+    "http://localhost:8080",
+    "http://localhost:8081", 
+    "http://localhost:8082",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:8082",
+    "http://localhost:3000",
+]
+
+if environment == "production":
+    # Production: use only explicitly allowed origins
+    if allowed_origins_env.strip():
+        allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    else:
+        allowed_origins = []
+        log.warning("⚠️ No ALLOWED_ORIGINS set in production!")
 else:
-    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    # Development: merge env origins with dev origins
+    if allowed_origins_env.strip() and allowed_origins_env.strip() != "*":
+        env_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+        allowed_origins = list(set(dev_origins + env_origins))
+    else:
+        allowed_origins = dev_origins
 
 log.info(f"CORS allowed origins: {allowed_origins}")
 

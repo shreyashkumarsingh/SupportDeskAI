@@ -1,0 +1,81 @@
+services:
+  # Backend API Service
+  - type: web
+    name: supportdesk-ai-backend
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn src.api.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: ENVIRONMENT
+        value: production
+      - key: MODEL_VERSION
+        value: 2.1.0
+      - key: ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: supportdesk-ai-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: PORT
+        value: 8000
+
+  # Frontend Static Site
+  - type: web
+    name: supportdesk-ai-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 18.18.0
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: supportdesk-ai-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_USE_MOCK_AUTH
+        value: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_APP_NAME
+        value: SupportDesk AI
+      - key: VITE_APP_VERSION
+        value: 2.0.0
+      - key: VITE_ENABLE_ANALYTICS
+        value: true
+      - key: VITE_ENABLE_EXPLANATIONS
+        value: true
+
+    # Add custom headers for security
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+
+    # SPA routing - serve index.html for all routes
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

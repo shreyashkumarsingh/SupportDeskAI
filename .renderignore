@@ -1,0 +1,57 @@
+# Render Ignore File
+# Files and directories to exclude from deployment
+
+# Development
+*.md
+!README.md
+!RENDER_DEPLOYMENT.md
+.vscode/
+.idea/
+
+# Testing
+tests/
+pytest.ini
+*.test.ts
+*.test.tsx
+*.spec.ts
+
+# Documentation
+docs/
+notebooks/
+*.ipynb
+
+# Logs
+*.log
+uvicorn*.log
+
+# Temporary files
+tmp_*
+temp/
+.tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Environment files (will be set in Render dashboard)
+.env
+.env.*
+!.env.example
+
+# Caches
+__pycache__/
+.pytest_cache/
+node_modules/.cache/
+.vite/
+
+# Build artifacts (frontend builds on Render)
+frontend/dist/
+frontend/build/
+
+# Development dependencies
+requirements-dev.txt
