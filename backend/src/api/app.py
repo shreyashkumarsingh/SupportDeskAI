@@ -102,13 +102,15 @@ DEFAULT_CONFIDENCE_THRESHOLDS = {
 }
 confidence_thresholds = dict(DEFAULT_CONFIDENCE_THRESHOLDS)
 
+model = None
+tfidf = None
 try:
     model = joblib.load(os.path.join(MODEL_DIR, "ticket_model.pkl"))
     tfidf = joblib.load(os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl"))
     log.info("✅ ML model and vectorizer loaded successfully")
 except Exception as e:
     log.error(f"❌ Failed to load ML model: {e}")
-    raise
+    log.info("⚠️ App will run with heuristic predictions only")
 
 # =====================================================================
 # INITIALIZE COMPONENTS
@@ -135,7 +137,7 @@ if ModelMonitor:
 
 # Initialize explainer
 model_explainer = None
-if ModelExplainer:
+if ModelExplainer and model and tfidf:
     try:
         feature_names = getattr(tfidf, 'get_feature_names_out', lambda: [])()
         model_explainer = ModelExplainer(model, tfidf, feature_names)
