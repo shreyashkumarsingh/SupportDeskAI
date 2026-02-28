@@ -25,8 +25,8 @@ const SignupPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -173,6 +173,12 @@ const SignupPage: React.FC = () => {
               Already have an account?{' '}
               <Link to="/login" className="text-primary hover:underline font-medium">
                 Sign in
+              </Link>
+            </div>
+
+            <div className="mt-3 text-center text-sm">
+              <Link to="/home" className="text-muted-foreground hover:text-foreground hover:underline transition-colors">
+                Back To Home
               </Link>
             </div>
           </div>

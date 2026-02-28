@@ -40,7 +40,7 @@ export const usePredictions = () => {
     async (subject: string, description: string, userId?: string | null): Promise<PredictionResult> => {
       setError(null);
       try {
-        const result = await predictTicket({ subject, description, userId });
+        const result = await predictTicket({ subject, description, userId, userRole: user?.role || 'agent' });
 
         const newHistoryItem: HistoryItem = {
           id: crypto.randomUUID(),
@@ -87,8 +87,34 @@ export const usePredictions = () => {
         return fallback;
       }
     },
-    []
+    [user?.id, user?.role]
   );
+
+  const appendReviewedPrediction = useCallback((item: {
+    id?: string;
+    subject: string;
+    body: string;
+    category: string;
+    confidence: number;
+  }) => {
+    const newHistoryItem: HistoryItem = {
+      id: item.id || crypto.randomUUID(),
+      timestamp: new Date(),
+      subject: item.subject,
+      body: item.body,
+      category: item.category as HistoryItem['category'],
+      confidence: item.confidence,
+    };
+
+    setHistory(prev => {
+      const updated = [newHistoryItem, ...prev];
+      if (user?.id) {
+        const userHistoryKey = `supportdesk_history_${user.id}`;
+        localStorage.setItem(userHistoryKey, JSON.stringify(updated));
+      }
+      return updated;
+    });
+  }, [user?.id]);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
@@ -129,6 +155,7 @@ export const usePredictions = () => {
     isLoading,
     error,
     predict,
+    appendReviewedPrediction,
     clearHistory,
     getStats,
   };

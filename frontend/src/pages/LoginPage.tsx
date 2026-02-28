@@ -144,6 +144,12 @@ const LoginPage: React.FC = () => {
                 Create one
               </Link>
             </div>
+
+            <div className="mt-3 text-center text-sm">
+              <Link to="/home" className="text-muted-foreground hover:text-foreground hover:underline transition-colors">
+                Back To Home
+              </Link>
+            </div>
           </div>
         </motion.div>
       </div>

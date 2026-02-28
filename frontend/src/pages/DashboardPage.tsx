@@ -7,22 +7,32 @@ import {
   Tag, 
   Activity,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Upload,
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { PageTransition } from '@/components/PageTransition';
 import { StatCard } from '@/components/StatCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { usePredictions } from '@/hooks/usePredictions';
-import { PredictionResult } from '@/utils/mockData';
+import { PredictionResult, TicketCategory, ticketCategories } from '@/utils/mockData';
 import { useAuth } from '@/context/AuthContext';
+import { predictBatchTickets, submitPredictionFeedback, triggerRetrain } from '@/lib/api';
 
 const DashboardPage: React.FC = () => {
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [isPredicting, setIsPredicting] = useState(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
-  const { predict, getStats, error } = usePredictions();
+  const [predictionMeta, setPredictionMeta] = useState<{ requestId?: string; plainExplanation?: string; modelVersion?: string; confidenceStatus?: string; quality?: { score: number; issues: string[]; is_acceptable: boolean } } | null>(null);
+  const [overrideCategory, setOverrideCategory] = useState<TicketCategory>('Incident');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [bulkReport, setBulkReport] = useState<{ total: number; successful: number; model_version?: string } | null>(null);
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false);
+  const [isRetraining, setIsRetraining] = useState(false);
+  const { predict, getStats, error, appendReviewedPrediction } = usePredictions();
   const { user } = useAuth();
 
   const stats = getStats();
@@ -36,8 +46,124 @@ const DashboardPage: React.FC = () => {
     try {
       const prediction = await predict(subject, description, user?.id);
       setResult(prediction);
+      setOverrideCategory(prediction.category);
+      setPredictionMeta({
+        requestId: (prediction as any).requestId,
+        plainExplanation: (prediction as any).plainExplanation,
+        modelVersion: (prediction as any).modelVersion,
+        confidenceStatus: (prediction as any).confidenceStatus,
+        quality: (prediction as any).quality,
+      });
     } finally {
       setIsPredicting(false);
+    }
+  };
+
+  const handleAcceptPrediction = async () => {
+    if (!result || !predictionMeta?.requestId) return;
+    setReviewMessage('');
+    try {
+      await submitPredictionFeedback({
+        predictionId: predictionMeta.requestId,
+        correctCategory: result.category,
+        comments: 'Accepted by agent',
+        userId: user?.id,
+        userRole: user?.role || 'agent',
+      });
+      setReviewMessage('Prediction accepted and feedback logged.');
+    } catch {
+      setReviewMessage('Could not submit acceptance feedback right now.');
+    }
+  };
+
+  const handleOverridePrediction = async () => {
+    if (!result || !predictionMeta?.requestId) return;
+    setReviewMessage('');
+    try {
+      await submitPredictionFeedback({
+        predictionId: predictionMeta.requestId,
+        correctCategory: overrideCategory,
+        comments: `Overridden from ${result.category} to ${overrideCategory}`,
+        userId: user?.id,
+        userRole: user?.role || 'agent',
+      });
+      appendReviewedPrediction({
+        subject,
+        body: description,
+        category: overrideCategory,
+        confidence: result.confidence,
+      });
+      setReviewMessage(`Prediction overridden to ${overrideCategory} and saved.`);
+    } catch {
+      setReviewMessage('Could not submit override feedback right now.');
+    }
+  };
+
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingCsv(true);
+    setBulkReport(null);
+    try {
+      const csvText = await file.text();
+      const lines = csvText.split(/\r?\n/).filter(Boolean);
+      if (lines.length <= 1) {
+        setReviewMessage('CSV must include headers and at least one row.');
+        return;
+      }
+
+      const header = lines[0].split(',').map((item) => item.trim().toLowerCase());
+      const subjectIndex = header.indexOf('subject');
+      const descriptionIndex = header.indexOf('description');
+      if (subjectIndex === -1 || descriptionIndex === -1) {
+        setReviewMessage('CSV headers must include subject and description.');
+        return;
+      }
+
+      const tickets = lines.slice(1).map((line) => {
+        const columns = line.split(',');
+        return {
+          subject: (columns[subjectIndex] || '').trim(),
+          description: (columns[descriptionIndex] || '').trim(),
+        };
+      }).filter((item) => item.subject && item.description);
+
+      if (tickets.length === 0) {
+        setReviewMessage('No valid ticket rows found in CSV.');
+        return;
+      }
+
+      const batchResult = await predictBatchTickets({
+        tickets,
+        userId: user?.id,
+        userRole: user?.role || 'agent',
+      });
+
+      setBulkReport({
+        total: batchResult.total,
+        successful: batchResult.successful,
+        model_version: batchResult.model_version,
+      });
+      setReviewMessage('Bulk prediction completed. You can export history from the History page.');
+    } catch {
+      setReviewMessage('Bulk prediction failed. Please check CSV format and try again.');
+    } finally {
+      setIsUploadingCsv(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleTriggerRetrain = async () => {
+    setIsRetraining(true);
+    setReviewMessage('');
+    try {
+      const response = await triggerRetrain({ reason: 'manual_dashboard_request', minFeedbackRecords: 10 }, user?.id, user?.role || 'agent');
+      setReviewMessage(`Retraining queued: ${response.candidate_model_version}`);
+    } catch (err: any) {
+      setReviewMessage(err?.response?.data?.detail || 'Retraining could not be triggered.');
+    } finally {
+      setIsRetraining(false);
     }
   };
 
@@ -45,6 +171,8 @@ const DashboardPage: React.FC = () => {
     setSubject('');
     setDescription('');
     setResult(null);
+    setPredictionMeta(null);
+    setReviewMessage('');
   };
 
   return (
@@ -166,6 +294,35 @@ const DashboardPage: React.FC = () => {
                     </button>
                   )}
                 </div>
+
+                <div className="pt-2 border-t border-border/60 space-y-3">
+                  <label className="block text-sm font-medium">Bulk CSV Upload (subject,description)</label>
+                  <div className="flex items-center gap-3">
+                    <label className="btn-secondary px-4 py-2 cursor-pointer inline-flex items-center gap-2">
+                      {isUploadingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      Upload CSV
+                      <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+                    </label>
+                    {bulkReport && (
+                      <span className="text-sm text-muted-foreground">
+                        {bulkReport.successful}/{bulkReport.total} successful • Model {bulkReport.model_version || 'N/A'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {user?.role === 'admin' && (
+                  <div className="pt-2 border-t border-border/60">
+                    <button
+                      onClick={handleTriggerRetrain}
+                      disabled={isRetraining}
+                      className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isRetraining ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      Trigger Retraining
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
 
@@ -229,9 +386,54 @@ const DashboardPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-green-500">
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>High confidence prediction</span>
+                        <span>
+                          {predictionMeta?.confidenceStatus === 'needs_review' ? 'Needs manual review' : 'High confidence prediction'}
+                        </span>
                       </div>
                     </div>
+
+                    {predictionMeta && (
+                      <div className="p-4 rounded-xl bg-secondary/40 border border-border space-y-2">
+                        <p className="text-sm font-medium">Why this category</p>
+                        <p className="text-sm text-muted-foreground">{predictionMeta.plainExplanation || 'Explanation unavailable.'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Model: {predictionMeta.modelVersion || 'N/A'} • Quality score: {predictionMeta.quality?.score ?? 'N/A'}
+                        </p>
+                      </div>
+                    )}
+
+                    {result && predictionMeta?.requestId && (
+                      <div className="p-4 rounded-xl border border-border space-y-3">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4" /> Human-in-the-loop review
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <button onClick={handleAcceptPrediction} className="btn-secondary flex-1">
+                            Accept Prediction
+                          </button>
+                          <div className="flex-1 flex gap-2">
+                            <select
+                              value={overrideCategory}
+                              onChange={(e) => setOverrideCategory(e.target.value as TicketCategory)}
+                              className="input-glass"
+                            >
+                              {ticketCategories.map((category) => (
+                                <option key={category} value={category}>{category}</option>
+                              ))}
+                            </select>
+                            <button onClick={handleOverridePrediction} className="btn-primary whitespace-nowrap">
+                              Override
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {reviewMessage && (
+                      <div className="p-3 rounded-lg bg-secondary/40 text-sm text-muted-foreground border border-border">
+                        {reviewMessage}
+                      </div>
+                    )}
 
                     {/* Top 3 Categories */}
                     <div>

@@ -17,8 +17,8 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: Array<'admin' | 'agent' | 'viewer'> }> = ({ children, allowedRoles }) => {
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return <FullPageLoader />;
@@ -26,6 +26,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!isAuthenticated) {
     return <Navigate to="/home" replace />;
+  }
+
+  const effectiveRole = (user?.role || 'viewer') as 'admin' | 'agent' | 'viewer';
+  if (allowedRoles && !allowedRoles.includes(effectiveRole)) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -95,7 +100,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'agent']}>
               <AnalyticsPage />
             </ProtectedRoute>
           }
@@ -115,7 +120,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AppRoutes />
           </BrowserRouter>
         </TooltipProvider>

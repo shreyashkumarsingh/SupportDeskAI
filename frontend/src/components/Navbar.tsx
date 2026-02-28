@@ -128,6 +128,7 @@ export const Navbar: React.FC = () => {
                     <div className="px-3 py-2 border-b border-border mb-2">
                       <p className="font-medium text-sm">{user?.name}</p>
                       <p className="text-xs text-muted-foreground">{user?.email}</p>
+                      <p className="text-xs text-primary mt-1 capitalize">Role: {user?.role || 'agent'}</p>
                     </div>
                     <button
                       onClick={handleLogout}

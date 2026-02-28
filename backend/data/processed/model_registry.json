@@ -1,0 +1,11 @@
+{
+  "active_model_version": "2.1.0",
+  "models": [
+    {
+      "version": "2.1.0",
+      "created_at": "2026-02-28T18:37:55.774314",
+      "status": "active",
+      "notes": "Initial loaded model"
+    }
+  ]
+}

@@ -15,9 +15,12 @@ import {
   CheckCircle2,
   Github,
   Twitter,
-  Linkedin
+  Linkedin,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { PageTransition, fadeInUp, staggerContainer } from '@/components/PageTransition';
+import { useTheme } from '@/context/ThemeContext';
 
 const features = [
   {
@@ -56,6 +59,8 @@ const steps = [
 ];
 
 const LandingPage: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <PageTransition>
       <div className="min-h-screen">
@@ -73,6 +78,15 @@ const LandingPage: React.FC = () => {
                 </span>
               </Link>
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="btn-secondary p-2"
+                  aria-label="Toggle dark mode"
+                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
                 <Link to="/login" className="btn-secondary">
                   Login
                 </Link>
@@ -144,7 +158,7 @@ const LandingPage: React.FC = () => {
                 variants={fadeInUp}
               >
                 <Link to="/signup" className="btn-primary text-lg px-8 py-4 flex items-center gap-2">
-                  Start Free Trial <ArrowRight className="w-5 h-5" />
+                  Create Your Account <ArrowRight className="w-5 h-5" />
                 </Link>
                 <Link to="/login" className="btn-secondary text-lg px-8 py-4">
                   Login to Dashboard
