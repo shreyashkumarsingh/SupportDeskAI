@@ -66,13 +66,21 @@ except ImportError as e:
 
 try:
     from models.sentiment_analyzer import SentimentAnalyzer, EmotionDetector
-    from models.monitor import ModelMonitor
-    from models.explainer import ModelExplainer
 except ImportError as e:
-    log.error(f"Failed to import AI modules: {e}")
+    log.warning(f"Sentiment modules unavailable (optional): {e}")
     SentimentAnalyzer = None
     EmotionDetector = None
+
+try:
+    from models.monitor import ModelMonitor
+except ImportError as e:
+    log.warning(f"Monitoring module unavailable (optional): {e}")
     ModelMonitor = None
+
+try:
+    from models.explainer import ModelExplainer
+except ImportError as e:
+    log.warning(f"Explainability module unavailable (optional): {e}")
     ModelExplainer = None
 
 # =====================================================================
@@ -94,6 +102,7 @@ ENABLE_EXPLAINER = os.getenv("ENABLE_EXPLAINER", "false").strip().lower() == "tr
 
 ASYNC_JOBS = {}
 ASYNC_LOCK = Lock()
+MODEL_LOAD_LOCK = Lock()
 
 DEFAULT_CONFIDENCE_THRESHOLDS = {
     "Incident": 0.75,
@@ -105,13 +114,8 @@ confidence_thresholds = dict(DEFAULT_CONFIDENCE_THRESHOLDS)
 
 model = None
 tfidf = None
-try:
-    model = joblib.load(os.path.join(MODEL_DIR, "ticket_model.pkl"))
-    tfidf = joblib.load(os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl"))
-    log.info("✅ ML model and vectorizer loaded successfully")
-except Exception as e:
-    log.error(f"❌ Failed to load ML model: {e}")
-    log.info("⚠️ App will run with heuristic predictions only")
+model_load_attempted = False
+model_load_error = None
 
 # =====================================================================
 # INITIALIZE COMPONENTS
@@ -136,16 +140,9 @@ if ModelMonitor:
     except Exception as e:
         log.warning(f"⚠️ Model monitor initialization failed: {e}")
 
-# Initialize explainer
+# Initialize explainer lazily after model load
 model_explainer = None
-if ModelExplainer and model and tfidf and ENABLE_EXPLAINER:
-    try:
-        feature_names = getattr(tfidf, 'get_feature_names_out', lambda: [])()
-        model_explainer = ModelExplainer(model, tfidf, feature_names)
-        log.info("✅ Model explainer (SHAP) initialized")
-    except Exception as e:
-        log.warning(f"⚠️ Model explainer initialization failed: {e}")
-elif not ENABLE_EXPLAINER:
+if not ENABLE_EXPLAINER:
     log.info("ℹ️ Explainability startup init disabled (set ENABLE_EXPLAINER=true to enable)")
 
 # =====================================================================
@@ -314,6 +311,39 @@ def save_model_registry(registry: dict):
     MODEL_REGISTRY_PATH.write_text(json.dumps(registry, indent=2), encoding="utf-8")
 
 
+def ensure_model_loaded() -> bool:
+    global model, tfidf, model_load_attempted, model_load_error, model_explainer
+    if model is not None and tfidf is not None:
+        return True
+
+    with MODEL_LOAD_LOCK:
+        if model is not None and tfidf is not None:
+            return True
+        if model_load_attempted and model_load_error:
+            return False
+
+        model_load_attempted = True
+        try:
+            model = joblib.load(os.path.join(MODEL_DIR, "ticket_model.pkl"))
+            tfidf = joblib.load(os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl"))
+            model_load_error = None
+            log.info("✅ ML model and vectorizer loaded successfully (lazy)")
+
+            if ModelExplainer and ENABLE_EXPLAINER and model_explainer is None:
+                try:
+                    feature_names = getattr(tfidf, 'get_feature_names_out', lambda: [])()
+                    model_explainer = ModelExplainer(model, tfidf, feature_names)
+                    log.info("✅ Model explainer (SHAP) initialized")
+                except Exception as e:
+                    log.warning(f"⚠️ Model explainer initialization failed: {e}")
+            return True
+        except Exception as e:
+            model_load_error = str(e)
+            log.error(f"❌ Failed to load ML model (lazy): {e}")
+            log.info("⚠️ App will run with heuristic predictions only")
+            return False
+
+
 def assess_data_quality(subject: str, description: str) -> dict:
     quality_issues = []
     subject_len = len(subject.strip())
@@ -427,7 +457,9 @@ def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "model_loaded": True,
+        "model_loaded": model is not None and tfidf is not None,
+        "model_load_attempted": model_load_attempted,
+        "model_load_error": model_load_error,
         "database_connected": supabase is not None,
         "components": {
             "sentiment_analysis": sentiment_analyzer is not None,
@@ -478,6 +510,36 @@ def predict(
         
         if not cleaned_text:
             raise HTTPException(status_code=400, detail="Text too short after cleaning")
+
+        if not ensure_model_loaded():
+            fallback_category, fallback_confidence, fallback_top = heuristic_predict_ticket(
+                ticket.subject,
+                ticket.description,
+            )
+            quality = assess_data_quality(ticket.subject, ticket.description)
+            log.warning(f"[{request_id}] ⚠️ ML model unavailable; returned heuristic fallback")
+            return {
+                "request_id": request_id,
+                "category": fallback_category,
+                "confidence": fallback_confidence,
+                "top_classes": fallback_top,
+                "sentiment": None,
+                "urgency": None,
+                "explanation": {
+                    "method": "heuristic_fallback",
+                    "reason": "ml_model_not_loaded",
+                },
+                "plain_explanation": generate_plain_explanation(
+                    fallback_category,
+                    fallback_confidence,
+                    fallback_top,
+                    quality,
+                ),
+                "quality": quality,
+                "model_version": MODEL_VERSION,
+                "confidence_status": "needs_review",
+                "timestamp": datetime.utcnow().isoformat(),
+            }
         
         # ---- Get prediction ----
         X = tfidf.transform([cleaned_text])
@@ -634,6 +696,10 @@ def predict_batch(
     
     try:
         log.info(f"[{request_id}] Processing batch of {len(batch_input.tickets)} tickets")
+
+        model_available = ensure_model_loaded()
+        if not model_available:
+            log.warning(f"[{request_id}] ⚠️ ML model unavailable; batch will use heuristic fallback")
         
         for i, ticket in enumerate(batch_input.tickets):
             try:
@@ -651,19 +717,24 @@ def predict_batch(
                 combined_text = f"{ticket.subject} {ticket.description}"
                 cleaned_text = clean_text(combined_text)
                 
-                X = tfidf.transform([cleaned_text])
-                pred = model.predict(X)[0]
-                
-                if hasattr(model, 'decision_function'):
-                    raw_scores = model.decision_function(X)[0]
-                    exp_scores = __import__('numpy').exp(raw_scores - __import__('numpy').max(raw_scores))
-                    probs = exp_scores / exp_scores.sum()
-                else:
-                    probs = model.predict_proba(X)[0]
-                
-                confidence = float(dict(zip(model.classes_, probs))[pred])
-                threshold = confidence_thresholds.get(str(pred), 0.7)
                 quality = assess_data_quality(ticket.subject, ticket.description)
+
+                if model_available:
+                    X = tfidf.transform([cleaned_text])
+                    pred = model.predict(X)[0]
+
+                    if hasattr(model, 'decision_function'):
+                        raw_scores = model.decision_function(X)[0]
+                        exp_scores = __import__('numpy').exp(raw_scores - __import__('numpy').max(raw_scores))
+                        probs = exp_scores / exp_scores.sum()
+                    else:
+                        probs = model.predict_proba(X)[0]
+
+                    confidence = float(dict(zip(model.classes_, probs))[pred])
+                    threshold = confidence_thresholds.get(str(pred), 0.7)
+                else:
+                    pred, confidence, _ = heuristic_predict_ticket(ticket.subject, ticket.description)
+                    threshold = confidence_thresholds.get(str(pred), 0.7)
                 
                 results.append({
                     "index": i,
@@ -1004,9 +1075,10 @@ def get_model_info():
     - Available enhancements (sentiment, explanation, monitoring)
     """
     try:
+        ensure_model_loaded()
         info = {
-            "model_type": type(model).__name__,
-            "classes": list(model.classes_),
+            "model_type": type(model).__name__ if model is not None else "Unavailable",
+            "classes": list(model.classes_) if model is not None and hasattr(model, "classes_") else [],
             "n_features": getattr(tfidf, 'n_features_in_', None),
             "capabilities": {
                 "sentiment_analysis": sentiment_analyzer is not None,
